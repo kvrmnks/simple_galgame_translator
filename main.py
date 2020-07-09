@@ -5,10 +5,15 @@ import hashlib
 import tkinter
 import pyautogui
 import io
+import tkinter.messagebox
+import configparser
 
 APPID = ''
 PAS = ''
 ACCESS_TOKEN = ''
+SELECT_LEFT_POINT = False
+SELECT_RIGHT_POINT = False
+POINT = [810, 1171, 1900, 1253]
 
 
 def get_test_from_pic(pic_binary, ACCESS_TOKEN):
@@ -21,7 +26,7 @@ def get_test_from_pic(pic_binary, ACCESS_TOKEN):
     response = requests.post(request_url, data=params, headers=headers)
     text = ''
     if response:
-        print(response.json())
+        # print(response.json())
         js = response.json()['words_result']
         for x in js:
             text = text + ' ' + x['words']
@@ -42,49 +47,105 @@ def translate(text, APPID, PAS):
     res = requests.post(url, data=params, headers=headers)
     test = ''
     if res:
-        print(res.json())
+        # print(res.json())
         test = res.json()['trans_result'][0]['dst']
     return test
 
 
 def solve():
     global text_frame
-    #text_frame.insert(tkinter.END, '2333')
-    LW = 810
-    LH = 1171
-    RW = 1900
-    RH = 1253
+    global POINT
+    # print(POINT)
+    LW, LH, RW, RH = tuple(POINT)
     img = pyautogui.screenshot(region=(LW, LH, RW - LW, RH - LH))
     tmp = io.BytesIO()
     img.save(tmp, format='png')
+    img.save('2333.png')
     img = tmp.getvalue()
-    print(img)
+    # print(img)
     pstr = get_test_from_pic(img, ACCESS_TOKEN)
     enstr = translate(pstr, APPID, PAS)
+    text_frame.config(state=tkinter.NORMAL)
     text_frame.delete(0.0, tkinter.END)
     text_frame.insert(tkinter.END, pstr)
     text_frame.insert(tkinter.END, '\n\n')
     text_frame.insert(tkinter.END, enstr)
+    text_frame.config(state=tkinter.DISABLED)
     pass
 
 
-# f = open('d://QQ截图20200708215349.jpg', 'rb')
-# print(f.read())
-'''
+def get_key_info(event):
+    global POINT
+    global SELECT_LEFT_POINT
+    global SELECT_RIGHT_POINT
 
-pstr = get_test_from_pic(f.read(), ACCESS_TOKEN)
-enstr = translate(pstr, APPID, PAS)
-print(pstr, enstr)
-'''
-frame = tkinter.Tk()
-text_frame = tkinter.Text(frame)
-text_frame.pack()
-b = tkinter.Button(frame, text='翻译', command=solve)
-b.pack()
-frame.mainloop()
-'''
-app = wx.App(False)
-s = wx.ScreenDC()
-s.Pen = wx.Pen("#FF0000")
-s.DrawLine(60,60,1200,1200)
-'''
+    # print(event, event.keysym)
+    if SELECT_RIGHT_POINT:
+        POINT[2], POINT[3] = event.x_root, event.y_root
+        SELECT_RIGHT_POINT = False
+        tkinter.messagebox.showinfo('右下角定位成功', 'x %d, y %d' % (event.x_root, event.y_root))
+        pass
+    elif SELECT_LEFT_POINT:
+        POINT[0], POINT[1] = event.x_root, event.y_root
+        SELECT_LEFT_POINT = False
+        tkinter.messagebox.showinfo('左上角定位成功', 'x %d, y %d' % (event.x_root, event.y_root))
+        pass
+
+
+def select_left_point():
+    global SELECT_LEFT_POINT
+    global SELECT_RIGHT_POINT
+
+    SELECT_RIGHT_POINT = False
+    if SELECT_LEFT_POINT:
+        tkinter.messagebox.showinfo('提示', '左上角定位终止')
+        SELECT_LEFT_POINT = False
+    else:
+        tkinter.messagebox.showinfo('提示', '开始左上角定位，请将鼠标移至左上角按下Ctrl+C')
+        SELECT_LEFT_POINT = True
+
+
+def select_right_point():
+    global SELECT_LEFT_POINT
+    global SELECT_RIGHT_POINT
+
+    SELECT_LEFT_POINT = False
+    if SELECT_RIGHT_POINT:
+        tkinter.messagebox.showinfo('提示', '右下角定位终止')
+        SELECT_RIGHT_POINT = False
+    else:
+        tkinter.messagebox.showinfo('提示', '开始右下角定位，请将鼠标移至左上角按下Ctrl+C')
+        SELECT_RIGHT_POINT = True
+
+
+def translate_key(event):
+    # print(event)
+    if event.char == 't':
+        solve()
+
+
+if __name__ == '__main__':
+    # load config
+    cfp = configparser.ConfigParser()
+    cfp.read('sgt.ini')
+    APPID = cfp.get('sgt', 'APPID')
+    PAS = cfp.get('sgt', 'PAS')
+    ACCESS_TOKEN = cfp.get('sgt', 'ACCESS_TOKEN')
+    WIDTH = cfp.get('sgt', 'WIDTH')
+    HEIGHT = cfp.get('sgt', 'HEIGHT')
+    # build frame
+    frame = tkinter.Tk()
+    frame.geometry('%dx%d' % (int(WIDTH), int(HEIGHT)))
+    text_frame = tkinter.Text(frame)
+    b = tkinter.Button(frame, text='翻译', command=solve)
+    select_left_point_button = tkinter.Button(frame, text='左上角定位', command=select_left_point)
+    select_right_point_button = tkinter.Button(frame, text='右下角定位', command=select_right_point)
+    text_frame.config(state=tkinter.DISABLED)
+    select_left_point_button.pack()
+    select_right_point_button.pack()
+    text_frame.pack()
+    b.pack()
+    frame.title('Simple galgame translator')
+    frame.bind('<Control-Key>', get_key_info)
+    frame.bind('<Key>', translate_key)
+    frame.mainloop()
