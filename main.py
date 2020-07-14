@@ -72,6 +72,8 @@ def solve():
     # print(datetime.datetime.now())
 
     pstr = get_test_from_pic(img, ACCESS_TOKEN)
+    if pstr == '':
+        return 
     # print(datetime.datetime.now())
     enstr = translate(pstr, APPID, PAS)
     # print(datetime.datetime.now())
@@ -135,12 +137,14 @@ def select_right_point():
 
 CHANGE_FLAG = False
 
+def delay_solve(delay):
+    time.sleep(delay)
+    solve()
 
 def on_scroll(x, y, dx, dy):
     global WHEEL_FLAG
     if dy < 0 and WHEEL_FLAG == 1:
-        time.sleep(0.7)
-        solve()
+        _thread.start_new_thread(delay_solve,(0.7,))
 
 
 def new_thread():
