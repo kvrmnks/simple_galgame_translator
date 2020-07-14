@@ -7,13 +7,17 @@ import pyautogui
 import io
 import tkinter.messagebox
 import configparser
+import time
+from pynput import mouse
+import _thread
 
 APPID = ''
 PAS = ''
 ACCESS_TOKEN = ''
 SELECT_LEFT_POINT = False
 SELECT_RIGHT_POINT = False
-POINT = [810, 1171, 1900, 1253]
+POINT = []
+KEY = ''
 
 
 def get_test_from_pic(pic_binary, ACCESS_TOKEN):
@@ -38,7 +42,7 @@ def translate(text, APPID, PAS):
     headers = {'content-type': 'application/x-www-form-urlencoded'}
     salt = str(random.randint(32768, 65536))
     params = {'q': text,
-              'from': 'auto',
+              'from': 'jp',
               'to': 'zh',
               'appid': APPID,
               'salt': salt,
@@ -57,14 +61,21 @@ def solve():
     global POINT
     # print(POINT)
     LW, LH, RW, RH = tuple(POINT)
+    # print(datetime.datetime.now())
+
     img = pyautogui.screenshot(region=(LW, LH, RW - LW, RH - LH))
     tmp = io.BytesIO()
     img.save(tmp, format='png')
-    img.save('2333.png')
+    # img.save('2333.png')
     img = tmp.getvalue()
     # print(img)
+    # print(datetime.datetime.now())
+
     pstr = get_test_from_pic(img, ACCESS_TOKEN)
+    # print(datetime.datetime.now())
     enstr = translate(pstr, APPID, PAS)
+    # print(datetime.datetime.now())
+
     text_frame.config(state=tkinter.NORMAL)
     text_frame.delete(0.0, tkinter.END)
     text_frame.insert(tkinter.END, pstr)
@@ -78,18 +89,22 @@ def get_key_info(event):
     global POINT
     global SELECT_LEFT_POINT
     global SELECT_RIGHT_POINT
+    global cfp
 
     # print(event, event.keysym)
     if SELECT_RIGHT_POINT:
         POINT[2], POINT[3] = event.x_root, event.y_root
         SELECT_RIGHT_POINT = False
         tkinter.messagebox.showinfo('右下角定位成功', 'x %d, y %d' % (event.x_root, event.y_root))
-        pass
+        cfp.set('sgt', 'BX', str(event.x_root))
+        cfp.set('sgt', 'BY', str(event.y_root))
     elif SELECT_LEFT_POINT:
         POINT[0], POINT[1] = event.x_root, event.y_root
         SELECT_LEFT_POINT = False
         tkinter.messagebox.showinfo('左上角定位成功', 'x %d, y %d' % (event.x_root, event.y_root))
-        pass
+        cfp.set('sgt', 'AX', str(event.x_root))
+        cfp.set('sgt', 'AY', str(event.y_root))
+    cfp.write(open('sgt.ini', 'w'))
 
 
 def select_left_point():
@@ -118,10 +133,57 @@ def select_right_point():
         SELECT_RIGHT_POINT = True
 
 
-def translate_key(event):
-    # print(event)
-    if event.char == 't':
+CHANGE_FLAG = False
+
+
+def on_scroll(x, y, dx, dy):
+    global WHEEL_FLAG
+    if dy < 0 and WHEEL_FLAG == 1:
+        time.sleep(0.7)
         solve()
+
+
+def new_thread():
+    while True:
+        with mouse.Listener(on_scroll=on_scroll) as listener:
+            listener.join()
+
+
+def translate_key(event):
+    global KEY
+    global CHANGE_FLAG
+    global text_frame
+    global cfp
+    if CHANGE_FLAG:
+        KEY = str(event.char)
+        tkinter.messagebox.showinfo('提示', '翻译快捷键设置为' + str(KEY))
+        cfp.set('sgt', 'KEY', KEY)
+        CHANGE_FLAG = False
+        cfp.write(open('sgt.ini', 'w'))
+    elif event.char == str(KEY):
+        solve()
+
+
+def translate_key_changed():
+    global CHANGE_FLAG
+    tkinter.messagebox.showinfo('提示', '按下要设置的快捷键')
+    CHANGE_FLAG = True
+
+
+WHEEL_FLAG = 0
+
+
+def wheel_switch():
+    global WHEEL_FLAG
+    global cfp
+    if WHEEL_FLAG == 1:
+        tkinter.messagebox.showinfo('提示', '已关闭滚轮翻译')
+        WHEEL_FLAG = 0
+    else:
+        tkinter.messagebox.showinfo('提示', '已开启滚轮翻译')
+        WHEEL_FLAG = 1
+    cfp.set('sgt', 'wheel', str(WHEEL_FLAG))
+    cfp.write(open('sgt.ini', 'w'))
 
 
 if __name__ == '__main__':
@@ -133,16 +195,27 @@ if __name__ == '__main__':
     ACCESS_TOKEN = cfp.get('sgt', 'ACCESS_TOKEN')
     WIDTH = cfp.get('sgt', 'WIDTH')
     HEIGHT = cfp.get('sgt', 'HEIGHT')
+    KEY = cfp.get('sgt', 'KEY')
+    POINT = [int(cfp.get('sgt', 'AX')), int(cfp.get('sgt', 'AY')), int(cfp.get('sgt', 'BX')), int(cfp.get('sgt', 'BY'))]
+    WHEEL_FLAG = int(cfp.get('sgt', 'wheel'))
+
+    _thread.start_new_thread(new_thread, ())
+
     # build frame
     frame = tkinter.Tk()
     frame.geometry('%dx%d' % (int(WIDTH), int(HEIGHT)))
+
     text_frame = tkinter.Text(frame)
     b = tkinter.Button(frame, text='翻译', command=solve)
     select_left_point_button = tkinter.Button(frame, text='左上角定位', command=select_left_point)
     select_right_point_button = tkinter.Button(frame, text='右下角定位', command=select_right_point)
+    select_key = tkinter.Button(frame, text='调整翻译快捷键', command=translate_key_changed)
+    select_wheel = tkinter.Button(frame, text='滚轮翻译', command=wheel_switch)
     text_frame.config(state=tkinter.DISABLED)
     select_left_point_button.pack()
     select_right_point_button.pack()
+    select_key.pack()
+    select_wheel.pack()
     text_frame.pack()
     b.pack()
     frame.title('Simple galgame translator')
