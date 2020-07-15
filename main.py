@@ -144,7 +144,7 @@ def delay_solve(delay):
 def on_scroll(x, y, dx, dy):
     global WHEEL_FLAG
     if dy < 0 and WHEEL_FLAG == 1:
-        _thread.start_new_thread(delay_solve,(0.7,))
+        _thread.start_new_thread(delay_solve,(0.5,))
 
 
 def new_thread():
@@ -165,7 +165,7 @@ def translate_key(event):
         CHANGE_FLAG = False
         cfp.write(open('sgt.ini', 'w'))
     elif event.char == str(KEY):
-        solve()
+        _thread.start_new_thread(delay_solve,(0.5,))
 
 
 def translate_key_changed():
@@ -189,6 +189,8 @@ def wheel_switch():
     cfp.set('sgt', 'wheel', str(WHEEL_FLAG))
     cfp.write(open('sgt.ini', 'w'))
 
+def no_delay_solve():
+    _thread.start_new_thread(delay_solve,(0,))
 
 if __name__ == '__main__':
     # load config
@@ -210,7 +212,7 @@ if __name__ == '__main__':
     frame.geometry('%dx%d' % (int(WIDTH), int(HEIGHT)))
 
     text_frame = tkinter.Text(frame)
-    b = tkinter.Button(frame, text='翻译', command=solve)
+    b = tkinter.Button(frame, text='翻译', command=no_delay_solve)
     select_left_point_button = tkinter.Button(frame, text='左上角定位', command=select_left_point)
     select_right_point_button = tkinter.Button(frame, text='右下角定位', command=select_right_point)
     select_key = tkinter.Button(frame, text='调整翻译快捷键', command=translate_key_changed)
