@@ -144,7 +144,7 @@ def delay_solve(delay):
 def on_scroll(x, y, dx, dy):
     global WHEEL_FLAG
     if dy < 0 and WHEEL_FLAG == 1:
-        _thread.start_new_thread(delay_solve,(0.5,))
+        _thread.start_new_thread(delay_solve,(0.2,))
 
 
 def new_thread():
